@@ -1,40 +1,48 @@
 package com.rinha.luiz.service;
 
 import com.rinha.luiz.config.PaymentProcessorClient;
+import com.rinha.luiz.model.PaymentType;
 import com.rinha.luiz.repository.PaymentRepository;
-import com.rinha.luiz.dto.PaymentProcessorDTO;
-import com.rinha.luiz.dto.PaymentRequestDTO;
 import com.rinha.luiz.model.Payment;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.concurrent.LinkedBlockingQueue;
 
 @Service
 public class PaymentProcessorService {
 
     private final PaymentRepository paymentRepository;
-    private final LinkedBlockingQueue<PaymentProcessorDTO> paymentQueue = new LinkedBlockingQueue<>();
+    private final LinkedBlockingQueue<Payment> paymentQueue = new LinkedBlockingQueue<>();
+    private final PaymentProcessorClient paymentProcessorDefaultClient;
+    private final PaymentProcessorClient paymentProcessorFallbackClient;
 
     public PaymentProcessorService(PaymentRepository paymentRepository,
                                    @Qualifier("paymentProcessorDefaultClient") PaymentProcessorClient paymentProcessorDefaultClient,
                                    @Qualifier("paymentProcessorFallbackClient") PaymentProcessorClient paymentProcessorFallbackClient) {
         this.paymentRepository = paymentRepository;
+        this.paymentProcessorDefaultClient = paymentProcessorDefaultClient;
+        this.paymentProcessorFallbackClient = paymentProcessorFallbackClient;
+
+        for (int i = 0; i < 20; i++) {
+            Thread.startVirtualThread(this::runWorker);
+        }
+    }
+
+    private void runWorker() {
+        while (true) {
+            var request = takePayment();
+            processPayment(request);
+        }
+    }
+
+    public void queuePayment(Payment payment) {
+        paymentQueue.offer(payment);
     }
 
 
-    public void queuePayment(PaymentRequestDTO paymentRequestDTO) {
-        var paymentProcessor = new PaymentProcessorDTO(
-                paymentRequestDTO.correlationId(),
-                paymentRequestDTO.amount(),
-                Instant.now().truncatedTo(ChronoUnit.SECONDS)
-        );
-        paymentQueue.offer(paymentProcessor);
-    }
 
-    public PaymentProcessorDTO takePayment() {
+    public Payment takePayment() {
         try {
             return paymentQueue.take();
         } catch (InterruptedException err) {
@@ -42,42 +50,53 @@ public class PaymentProcessorService {
         }
     }
 
-    public void processPayment(PaymentRequestDTO paymentRequestDTO) {
+    private void processPayment(Payment payment) {
         // tenta realizar o pagamento com função e afere se foi um sucesso ou não
+        boolean sucess = executePayment(payment);
 
+        if (sucess) {
+            return;
+        }
+
+        queuePayment(payment);
     }
 
-    public boolean doPayment(Payment payment){
+    public boolean executePayment(Payment payment){
         try {
             boolean sucess;
+            for(int tries = 0; tries < 15; tries++) {
+                sucess = sendRequisition(payment, true);
 
+                if(sucess) {
+                    payment.setType(PaymentType.DEFAULT);
+                    paymentRepository.save(payment);
+                    return true;
+                }
+            }
 
-        }
-    }
-
-    public boolean sendRequisition(PaymentRequestDTO paymentRequestDTO) {
-        try {
-
+            sucess = sendRequisition(payment, false);
+            if (sucess) {
+                payment.setType(PaymentType.FALLBACK);
+                paymentRepository.save(payment);
+                return true;
+            }
+            return false;
         } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
     }
 
-    private String escape(String value) {
-        return value.replace("\"", "\\\"");
-    }
-
-    public String convertToJson(PaymentProcessorDTO request) {
-        return """
-                {
-                  "correlationId": "%s",
-                  "amount": %s,
-                  "requestedAt": "%s"
-                }
-                """.formatted(
-                escape(request.correlationId().toString()),
-                request.amount().toPlainString(),
-                request.requestedAt().toString()
-        ).replace("\n", "").replace("  ", "");
+    public boolean sendRequisition(Payment payment, boolean retry) {
+        try {
+            if(retry) {
+                return paymentProcessorDefaultClient.processPayment(payment);
+            } else {
+                return paymentProcessorFallbackClient.processPayment(payment);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 }

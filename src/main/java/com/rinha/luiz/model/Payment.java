@@ -12,16 +12,15 @@ public class Payment {
     @Id private UUID correlationId;
     private BigDecimal amount;
     private Instant requestedAt;
-    private Boolean isDefault;
+    private PaymentType type;
 
     public Payment() {
     }
 
-    public Payment(UUID correlationId, BigDecimal amount, Instant requestedAt, Boolean isDefault) {
+    public Payment(UUID correlationId, BigDecimal amount, Instant requestedAt) {
         this.correlationId = correlationId;
         this.amount = amount;
         this.requestedAt = requestedAt;
-        this.isDefault = isDefault;
     }
 
     public UUID getCorrelationId() {
@@ -40,12 +39,12 @@ public class Payment {
         this.amount = amount;
     }
 
-    public Boolean getDefault() {
-        return isDefault;
+    public PaymentType getType() {
+        return type;
     }
 
-    public void setDefault(Boolean aDefault) {
-        isDefault = aDefault;
+    public void setType(PaymentType type) {
+        this.type = type;
     }
 
     public Instant getRequestedAt() {

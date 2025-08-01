@@ -1,7 +1,7 @@
 package com.rinha.luiz.config;
 
-import com.rinha.luiz.dto.PaymentRequestDTO;
+import com.rinha.luiz.model.Payment;
 
 public interface PaymentProcessorClient {
-    boolean processPayment(String payment);
+    boolean processPayment(Payment payment);
 }
