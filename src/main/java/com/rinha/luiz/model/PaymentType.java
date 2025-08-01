@@ -1,4 +1,4 @@
-package com.rinha.luiz;
+package com.rinha.luiz.model;
 
 public enum PaymentType {
     DEFAULT,

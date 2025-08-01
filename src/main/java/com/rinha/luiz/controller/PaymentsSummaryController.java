@@ -1,4 +1,4 @@
-package com.rinha.luiz;
+package com.rinha.luiz.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;

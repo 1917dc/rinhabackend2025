@@ -1,4 +1,4 @@
-package com.rinha.luiz;
+package com.rinha.luiz.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
@@ -12,15 +12,16 @@ public class Payment {
     @Id private UUID correlationId;
     private BigDecimal amount;
     private Instant requestedAt;
-    private PaymentType type;
+    private Boolean isDefault;
 
     public Payment() {
     }
 
-    public Payment(UUID correlationId, BigDecimal amount, Instant requestedAt) {
+    public Payment(UUID correlationId, BigDecimal amount, Instant requestedAt, Boolean isDefault) {
         this.correlationId = correlationId;
         this.amount = amount;
         this.requestedAt = requestedAt;
+        this.isDefault = isDefault;
     }
 
     public UUID getCorrelationId() {
@@ -39,12 +40,12 @@ public class Payment {
         this.amount = amount;
     }
 
-    public PaymentType getType() {
-        return type;
+    public Boolean getDefault() {
+        return isDefault;
     }
 
-    public void setType(PaymentType type) {
-        this.type = type;
+    public void setDefault(Boolean aDefault) {
+        isDefault = aDefault;
     }
 
     public Instant getRequestedAt() {
